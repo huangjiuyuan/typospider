@@ -1,42 +1,41 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/PuerkitoBio/gocrawl"
 	"github.com/PuerkitoBio/goquery"
 )
 
-type Ext struct {
-	*gocrawl.DefaultExtender
+// Only enqueue the root and paths matching expression.
+var exp = regexp.MustCompile(`http://github\.com/kubernetes/kubernetes(/[a-g].*)?$`)
+
+// Extender creates the Extender implementation.
+type Extender struct {
+	gocrawl.DefaultExtender
 }
 
-func (e *Ext) Visit(ctx *gocrawl.URLContext, res *http.Response, doc *goquery.Document) (interface{}, bool) {
-	fmt.Printf("Visit: %s\n", ctx.URL())
+// Visit overrides the default Visit function.
+func (ext *Extender) Visit(ctx *gocrawl.URLContext, res *http.Response, doc *goquery.Document) (interface{}, bool) {
 	return nil, true
 }
 
-func (e *Ext) Filter(ctx *gocrawl.URLContext, isVisited bool) bool {
-	if isVisited {
-		return false
-	}
-	if ctx.URL().Host == "github.com" || ctx.URL().Host == "golang.org" || ctx.URL().Host == "0value.com" {
-		return true
-	}
-	return false
+// Filter overrides the default Filter function.
+func (ext *Extender) Filter(ctx *gocrawl.URLContext, isVisited bool) bool {
+	return !isVisited && exp.MatchString(ctx.NormalizedURL().String())
 }
 
 func main() {
-	ext := &Ext{&gocrawl.DefaultExtender{}}
-	// Set custom options
-	opts := gocrawl.NewOptions(ext)
+	// Set custom options.
+	opts := gocrawl.NewOptions(new(Extender))
+	opts.RobotUserAgent = "CCBot"
+	opts.UserAgent = "TypoSpider"
 	opts.CrawlDelay = 1 * time.Second
-	opts.LogFlags = gocrawl.LogError
-	opts.SameHostOnly = false
-	opts.MaxVisits = 100
+	opts.LogFlags = gocrawl.LogAll
+	opts.MaxVisits = 5
 
 	c := gocrawl.NewCrawlerWithOptions(opts)
-	c.Run("http://0value.com")
+	c.Run("https://github.com/kubernetes/kubernetes/")
 }
