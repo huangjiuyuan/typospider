@@ -1,4 +1,4 @@
-package main
+package crawl
 
 import (
 	"net/http"
@@ -10,7 +10,7 @@ import (
 )
 
 // Only enqueue the root and paths matching expression.
-var exp = regexp.MustCompile(`http://github\.com/kubernetes/kubernetes(/[a-g].*)?$`)
+var exp = regexp.MustCompile(`http://github\.com/kubernetes/kubernetes/tree/master(/[a-g].*)?$`)
 
 // Extender creates the Extender implementation.
 type Extender struct {
@@ -27,7 +27,7 @@ func (ext *Extender) Filter(ctx *gocrawl.URLContext, isVisited bool) bool {
 	return !isVisited && exp.MatchString(ctx.NormalizedURL().String())
 }
 
-func main() {
+func Crawl() {
 	// Set custom options.
 	opts := gocrawl.NewOptions(new(Extender))
 	opts.RobotUserAgent = "CCBot"
@@ -37,5 +37,5 @@ func main() {
 	opts.MaxVisits = 5
 
 	c := gocrawl.NewCrawlerWithOptions(opts)
-	c.Run("https://github.com/kubernetes/kubernetes/")
+	c.Run("https://github.com/kubernetes/kubernetes/tree/master")
 }
