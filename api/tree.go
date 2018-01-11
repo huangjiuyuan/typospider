@@ -23,8 +23,8 @@ type Submodule struct {
 	URL  string `json:"url"`
 }
 
-func (v *Visitor) GetTree(url string) (*Tree, error) {
-	if v.Recursive != true {
+func (vis *Visitor) GetTree(url string) (*Tree, error) {
+	if vis.Recursive != true {
 		t, err := getTreeUnrecursive(url)
 		if err != nil {
 			return nil, err

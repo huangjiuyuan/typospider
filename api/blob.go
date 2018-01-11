@@ -6,7 +6,14 @@ import (
 	"net/http"
 )
 
-func (v *Visitor) GetBlob(url string) ([]byte, error) {
+type Blob struct {
+	Path string  `json:"path"`
+	SHA  string  `json:"sha"`
+	URL  string  `json:"url"`
+	Data *[]byte `json:"data"`
+}
+
+func (vi *Visitor) GetBlob(url string) ([]byte, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	req.Header.Add("Accept", `application/vnd.github.v3.raw`)
