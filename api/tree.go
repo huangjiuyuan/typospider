@@ -57,7 +57,7 @@ func getTreeUnrecursive(url string) (*Tree, error) {
 	}
 
 	if t.Truncated != false {
-		fmt.Println("Result of getting url has been truncated.")
+		fmt.Println("Warning: Result of getting url has been truncated.")
 	}
 	return t, nil
 }
@@ -81,7 +81,7 @@ func getTreeRecursive(url string) (*Tree, error) {
 	}
 
 	if t.Truncated != false {
-		fmt.Println("Result of getting url has been truncated.")
+		fmt.Println("Warning: Result of getting url has been truncated.")
 	}
 	return t, nil
 }
