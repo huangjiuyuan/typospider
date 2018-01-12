@@ -13,10 +13,10 @@ type Blob struct {
 	Data *[]byte `json:"data"`
 }
 
-func (vi *Visitor) GetBlob(url string) ([]byte, error) {
+func (vis *Visitor) GetBlob(url string) ([]byte, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
-	req.Header.Add("Accept", `application/vnd.github.v3.raw`)
+	vis.SetAPIAgent(req, true)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error on requesting a blob: %s", err)
