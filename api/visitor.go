@@ -106,7 +106,7 @@ func (vis *Visitor) processBlob() error {
 			fmt.Printf("[Error] Get blob %s failed\n", b.URL)
 		}
 		b.Data = &data
-		fmt.Printf("%#v\n", b)
+		// fmt.Printf("%#v\n", b)
 		if vis.treequeue.ShuttingDown() {
 			vis.blobqueue.ShutDown()
 		}

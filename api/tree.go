@@ -41,6 +41,9 @@ func (vis *Visitor) GetTree(url string) (*Tree, error) {
 func (vis *Visitor) getTreeUnrecursive(url string) (*Tree, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error on creating new request: %s", err)
+	}
 	vis.SetAPIAgent(req, false)
 	resp, err := client.Do(req)
 	if err != nil {
@@ -68,6 +71,9 @@ func (vis *Visitor) getTreeUnrecursive(url string) (*Tree, error) {
 func (vis *Visitor) getTreeRecursive(url string) (*Tree, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url+"?recursive=1", nil)
+	if err != nil {
+		return nil, fmt.Errorf("error on creating new request: %s", err)
+	}
 	vis.SetAPIAgent(req, false)
 	resp, err := client.Do(req)
 	if err != nil {
