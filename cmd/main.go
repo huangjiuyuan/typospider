@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	vis, err := api.NewVisitor(false, 1000, "9b288a1c554007f36d10158705123ba49ee1b8cd")
+	vis, err := api.NewVisitor(false, 1000, "a058f59dc639c6ff048a4df0d40a02007077ad70")
 	if err != nil {
 		fmt.Println(err)
 	}
