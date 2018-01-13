@@ -18,7 +18,7 @@ type Submodule struct {
 	Path string `json:"path"`
 	Mode string `json:"mode"`
 	Type string `json:"type"`
-	Size *int32 `json:"size"`
+	Size *int   `json:"size"`
 	SHA  string `json:"sha"`
 	URL  string `json:"url"`
 }

@@ -1,22 +1,84 @@
 package language
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 )
 
 type LanguageTool struct {
 	Addr string
 }
 
-type CheckBody struct{}
+type CheckResult struct {
+	Software Software `json:"software"`
+	Warnings Warnings `json:"warnings"`
+	Language Language `json:"language"`
+	Matches  []*Match `json:"matches"`
+}
 
-type CheckResult struct{}
+type Software struct {
+	Name       string  `json:"name"`
+	Version    string  `json:"version"`
+	BuildDate  string  `json:"buildDate"`
+	APIVersion string  `json:"apiVersion"`
+	Status     *string `json:"status"`
+}
 
-type LanguagesResult struct{}
+type Warnings struct {
+	IncompleteResults bool `json:"incompleteResults"`
+}
+
+type Language struct {
+	Name string `json:"name"`
+	Code string `json:"code"`
+}
+
+type Match struct {
+	Message      string         `json:"message"`
+	ShortMessage *string        `json:"shortMessage"`
+	Offset       int            `json:"offset"`
+	Length       int            `json:"length"`
+	Replacements []*Replacement `json:"replacements"`
+	Context      Context        `json:"context"`
+	Sentence     string         `json:"sentence"`
+	Rule         Rule           `json:"rule"`
+}
+
+type Replacement struct {
+	Value *string `json:"value"`
+}
+
+type Context struct {
+	Text   string `json:"text"`
+	Offset int    `json:"offset"`
+	Length int    `json:"length"`
+}
+
+type Rule struct {
+	ID          string   `json:"id"`
+	SubID       *string  `json:"subId"`
+	Description string   `json:"description"`
+	URLs        []*URL   `json:"urls"`
+	IssueType   *string  `json:"issueType"`
+	Category    Category `json:"category"`
+}
+
+type URL struct {
+	Value *string `json:"value"`
+}
+
+type Category struct {
+	ID   *string `json:"id"`
+	Name *string `json:"name"`
+}
+
+type LanguagesResult struct {
+	Name     string `json:"name"`
+	Code     string `json:"code"`
+	LongCode string `json:"longCode"`
+}
 
 func NewLanguageTool(host string, port string) (*LanguageTool, error) {
 	if host == "" {
@@ -32,27 +94,76 @@ func NewLanguageTool(host string, port string) (*LanguageTool, error) {
 	}, nil
 }
 
-func (lt *LanguageTool) NewCheckBody() (*CheckBody, error) {
-	return &CheckBody{}, nil
+func (lt *LanguageTool) NewCheckBody(
+	text string,
+	language string,
+	motherTongue string,
+	preferredVariants string,
+	enabledRules string,
+	disabledRules string,
+	enabledCategories string,
+	disabledCategories string,
+	enabledOnly bool) (url.Values, error) {
+	if text == "" {
+		return nil, fmt.Errorf("missing text parameter")
+	}
+	if language == "" {
+		return nil, fmt.Errorf("missing language parameter")
+	}
+
+	strFunc := func(s string) []string {
+		if s == "" {
+			return nil
+		}
+		return []string{s}
+	}
+	boolFunc := func(b bool) []string {
+		if b == true {
+			return []string{"true"}
+		}
+		return []string{"false"}
+	}
+	cb := url.Values{
+		"text":               {text},
+		"language":           {language},
+		"motherTongue":       strFunc(motherTongue),
+		"preferredVariants":  strFunc(preferredVariants),
+		"enabledRules":       strFunc(enabledRules),
+		"disabledRules":      strFunc(disabledRules),
+		"enabledCategories":  strFunc(enabledCategories),
+		"disabledCategories": strFunc(disabledCategories),
+		"enabledOnly":        boolFunc(enabledOnly),
+	}
+
+	return cb, nil
 }
 
-func (lt *LanguageTool) Check(url string) (*CheckResult, error) {
-	client := &http.Client{}
-	cb, err := lt.NewCheckBody()
+func (lt *LanguageTool) Check(
+	url string,
+	text string,
+	language string,
+	motherTongue string,
+	preferredVariants string,
+	enabledRules string,
+	disabledRules string,
+	enabledCategories string,
+	disabledCategories string,
+	enabledOnly bool) (*CheckResult, error) {
+	cb, err := lt.NewCheckBody(
+		text,
+		language,
+		motherTongue,
+		preferredVariants,
+		enabledRules,
+		disabledRules,
+		enabledCategories,
+		disabledCategories,
+		enabledOnly)
 	if err != nil {
 		return nil, fmt.Errorf("error on creating new check body: %s", err)
 	}
 
-	data, err := json.Marshal(cb)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", lt.URL("", lt.Addr, url), bytes.NewBuffer(data))
-	if err != nil {
-		return nil, fmt.Errorf("error on creating new request: %s", err)
-	}
-	resp, err := client.Do(req)
+	resp, err := http.PostForm(lt.GetURL("", lt.Addr, url), cb)
 	if err != nil {
 		return nil, fmt.Errorf("error on requesting a check: %s", err)
 	}
@@ -69,7 +180,7 @@ func (lt *LanguageTool) Check(url string) (*CheckResult, error) {
 
 func (lt *LanguageTool) Languages(url string) (*LanguagesResult, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", lt.URL("", lt.Addr, url), nil)
+	req, err := http.NewRequest("GET", lt.GetURL("", lt.Addr, url), nil)
 	if err != nil {
 		return nil, fmt.Errorf("error on creating new request: %s", err)
 	}
@@ -88,9 +199,12 @@ func (lt *LanguageTool) Languages(url string) (*LanguagesResult, error) {
 	return &LanguagesResult{}, nil
 }
 
-func (lt *LanguageTool) URL(scheme string, host string, path string) string {
+func (lt *LanguageTool) GetURL(scheme string, host string, path string) string {
 	if scheme == "" {
 		scheme = "http"
+	}
+	if host == "languagetool.org" {
+		path = "/api" + path
 	}
 	return scheme + "://" + host + path
 }
