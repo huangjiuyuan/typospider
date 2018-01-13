@@ -1,6 +1,7 @@
 package language
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -22,7 +23,7 @@ type Software struct {
 	Name       string  `json:"name"`
 	Version    string  `json:"version"`
 	BuildDate  string  `json:"buildDate"`
-	APIVersion string  `json:"apiVersion"`
+	APIVersion int     `json:"apiVersion"`
 	Status     *string `json:"status"`
 }
 
@@ -74,11 +75,7 @@ type Category struct {
 	Name *string `json:"name"`
 }
 
-type LanguagesResult struct {
-	Name     string `json:"name"`
-	Code     string `json:"code"`
-	LongCode string `json:"longCode"`
-}
+type LanguagesResult []Language
 
 func NewLanguageTool(host string, port string) (*LanguageTool, error) {
 	if host == "" {
@@ -173,9 +170,14 @@ func (lt *LanguageTool) Check(
 	if err != nil {
 		return nil, fmt.Errorf("error on reading a check response: %s", err)
 	}
-	fmt.Println(string(body))
 
-	return &CheckResult{}, nil
+	cr := new(CheckResult)
+	err = json.Unmarshal(body, cr)
+	if err != nil {
+		return nil, fmt.Errorf("error on parsing a check result: %s", err)
+	}
+
+	return cr, nil
 }
 
 func (lt *LanguageTool) Languages(url string) (*LanguagesResult, error) {
@@ -194,9 +196,14 @@ func (lt *LanguageTool) Languages(url string) (*LanguagesResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error on reading languages response: %s", err)
 	}
-	fmt.Println(string(body))
 
-	return &LanguagesResult{}, nil
+	lr := new(LanguagesResult)
+	err = json.Unmarshal(body, lr)
+	if err != nil {
+		return nil, fmt.Errorf("error on parsing a languages result: %s", err)
+	}
+
+	return lr, nil
 }
 
 func (lt *LanguageTool) GetURL(scheme string, host string, path string) string {
