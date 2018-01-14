@@ -67,20 +67,21 @@ func (proc *Processer) processTree(url string) error {
 		t := item.(*github.Tree)
 		for _, sm := range t.Tree {
 			if sm.Type == "blob" {
-				b := &github.Blob{
-					Path: sm.Path,
+				blob := &github.Blob{
+					Path: setPath(t.Path, sm.Path),
 					Size: *sm.Size,
 					SHA:  sm.SHA,
 					URL:  sm.URL,
 					Data: nil,
 				}
-				proc.blobqueue.Enqueue(b)
+				proc.blobqueue.Enqueue(blob)
 			} else if sm.Type == "tree" {
-				t, err := proc.Visitor.GetTree(sm.URL)
+				tree, err := proc.Visitor.GetTree(sm.URL)
+				tree.Path = setPath(t.Path, sm.Path)
 				if err != nil {
 					fmt.Printf("[Error] Get tree %s failed\n", t.URL)
 				}
-				proc.treequeue.Enqueue(t)
+				proc.treequeue.Enqueue(tree)
 			}
 		}
 
@@ -128,6 +129,10 @@ func (proc *Processer) checkTypo(b *github.Blob) {
 		for _, match := range cr.Matches {
 			content.AddTypo(*match)
 		}
-		proc.ContentMap[content.URL] = *content
+		proc.ContentMap[content.SHA] = *content
 	}
+}
+
+func setPath(parent string, current string) string {
+	return parent + "/" + current
 }

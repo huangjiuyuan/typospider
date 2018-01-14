@@ -8,6 +8,7 @@ import (
 )
 
 type Tree struct {
+	Path      string       `json:"path"`
 	SHA       string       `json:"sha"`
 	URL       string       `json:"url"`
 	Tree      []*Submodule `json:"tree"`
