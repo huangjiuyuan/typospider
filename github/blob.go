@@ -8,6 +8,7 @@ import (
 
 type Blob struct {
 	Path string  `json:"path"`
+	Size int     `json:"size"`
 	SHA  string  `json:"sha"`
 	URL  string  `json:"url"`
 	Data *[]byte `json:"data"`

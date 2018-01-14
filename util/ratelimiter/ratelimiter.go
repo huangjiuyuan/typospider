@@ -7,10 +7,10 @@ import (
 type Interface interface {
 	Len() int
 	// When() time.Duration
-	// Forget(interface{})
-	// NumRequeues(interface{}) int
-	Enqueue(interface{})
-	Dequeue() (interface{}, bool)
+	// Forget(item interface{})
+	// NumRequeues(item interface{}) int
+	Enqueue(item interface{})
+	Dequeue() (item interface{}, shutdown bool)
 	ShutDown()
 	ShuttingDown() bool
 }
@@ -33,10 +33,10 @@ func (rl *RateLimiter) Len() int {
 	return len(rl.queue)
 }
 
-func (rl *RateLimiter) Enqueue(v interface{}) {
+func (rl *RateLimiter) Enqueue(item interface{}) {
 	rl.cond.L.Lock()
 	defer rl.cond.L.Unlock()
-	rl.queue = append(rl.queue, v)
+	rl.queue = append(rl.queue, item)
 	rl.cond.Signal()
 }
 
@@ -50,9 +50,9 @@ func (rl *RateLimiter) Dequeue() (interface{}, bool) {
 		return nil, true
 	}
 
-	var v interface{}
-	v, rl.queue = rl.queue[0], rl.queue[1:]
-	return v, false
+	var item interface{}
+	item, rl.queue = rl.queue[0], rl.queue[1:]
+	return item, false
 }
 
 func (rl *RateLimiter) ShutDown() {

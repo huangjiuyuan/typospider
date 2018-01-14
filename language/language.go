@@ -136,7 +136,6 @@ func (lt *LanguageTool) NewCheckBody(
 }
 
 func (lt *LanguageTool) Check(
-	url string,
 	text string,
 	language string,
 	motherTongue string,
@@ -160,7 +159,7 @@ func (lt *LanguageTool) Check(
 		return nil, fmt.Errorf("error on creating new check body: %s", err)
 	}
 
-	resp, err := http.PostForm(lt.GetURL("", lt.Addr, url), cb)
+	resp, err := http.PostForm(lt.GetURL("", lt.Addr, "/v2/check"), cb)
 	if err != nil {
 		return nil, fmt.Errorf("error on requesting a check: %s", err)
 	}
@@ -180,9 +179,9 @@ func (lt *LanguageTool) Check(
 	return cr, nil
 }
 
-func (lt *LanguageTool) Languages(url string) (*LanguagesResult, error) {
+func (lt *LanguageTool) Languages() (*LanguagesResult, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", lt.GetURL("", lt.Addr, url), nil)
+	req, err := http.NewRequest("GET", lt.GetURL("", lt.Addr, "/v2/languages"), nil)
 	if err != nil {
 		return nil, fmt.Errorf("error on creating new request: %s", err)
 	}

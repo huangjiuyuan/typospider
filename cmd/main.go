@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	vis, err := github.NewVisitor(false, "78536a468001488c0f863cf255838071742a792a")
+	vis, err := github.NewVisitor(false, "351a6bbaa7a0c9273aa6c3b3666eb73c677b10cf")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -19,13 +19,11 @@ func main() {
 		fmt.Println(err)
 	}
 
-	cr, err := lt.Check("/v2/check", "I has a mistakes", "en", "", "", "", "", "", "", false)
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Printf("%#v\n", cr)
-
 	proc, err := process.NewProcesser(1000, vis, lt)
 	go proc.ProcessTree("https://api.github.com/repos/kubernetes/kubernetes/git/trees/cec41ac042ea6ac18cf70b7d6f38500b9723e6cb")
 	proc.ProcessBlob()
+
+	for url, content := range proc.ContentMap {
+		fmt.Printf("URL: %s, Num of typos: %d\n", url, len(content.Typos))
+	}
 }

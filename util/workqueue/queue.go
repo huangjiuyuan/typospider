@@ -6,8 +6,8 @@ import (
 
 type Interface interface {
 	Len() int
-	Enqueue(interface{})
-	Dequeue() interface{}
+	Enqueue(item interface{})
+	Dequeue() (item interface{})
 }
 
 type WorkQueue struct {
@@ -23,7 +23,7 @@ func (wq *WorkQueue) Len() int {
 	return 0
 }
 
-func (wq *WorkQueue) Enqueue(interface{}) {
+func (wq *WorkQueue) Enqueue(item interface{}) {
 	// TODO
 }
 

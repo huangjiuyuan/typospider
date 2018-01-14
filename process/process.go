@@ -14,6 +14,9 @@ type Processer struct {
 	LanguageTool *language.LanguageTool
 	Rate         time.Duration
 
+	// For debug only, remove after Elasticsearch finished.
+	ContentMap map[string]Content
+
 	treequeue ratelimiter.Interface
 	blobqueue ratelimiter.Interface
 }
@@ -26,6 +29,7 @@ func NewProcesser(rate int, vis *github.Visitor, lt *language.LanguageTool) (*Pr
 		Visitor:      vis,
 		LanguageTool: lt,
 		Rate:         time.Duration(rate) * time.Millisecond,
+		ContentMap:   make(map[string]Content),
 
 		treequeue: ratelimiter.New(),
 		blobqueue: ratelimiter.New(),
@@ -65,6 +69,7 @@ func (proc *Processer) processTree(url string) error {
 			if sm.Type == "blob" {
 				b := &github.Blob{
 					Path: sm.Path,
+					Size: *sm.Size,
 					SHA:  sm.SHA,
 					URL:  sm.URL,
 					Data: nil,
@@ -110,5 +115,19 @@ func (proc *Processer) processBlob() error {
 }
 
 func (proc *Processer) checkTypo(b *github.Blob) {
-	fmt.Printf("%#v\n", b)
+	lt := proc.LanguageTool
+	cr, err := lt.Check(string(*b.Data), "en", "", "", "", "", "", "", false)
+	if err != nil {
+		fmt.Println(err)
+	}
+	if len(cr.Matches) > 0 {
+		content, err := NewContent(b.Path, b.Size, b.SHA, b.URL, *b.Data)
+		if err != nil {
+			fmt.Printf("[Error] Create content %s failed\n", b.Path)
+		}
+		for _, match := range cr.Matches {
+			content.AddTypo(*match)
+		}
+		proc.ContentMap[content.URL] = *content
+	}
 }
