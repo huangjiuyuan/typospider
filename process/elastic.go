@@ -9,10 +9,6 @@ import (
 
 const mapping = `
 {
-	"settings":{
-		"number_of_shards": 1,
-		"number_of_replicas": 0
-	},
 	"mappings":{
 		"file":{
 			"properties": {
@@ -33,7 +29,89 @@ const mapping = `
 				},
 				"typos": {
 					"type": "nested",
-					"properties": {}
+					"properties": {
+						"match": {
+							"type": "object",
+							"properties": {
+								"message": {
+									"type": "string"
+								},
+								"shortMessage": {
+									"type": "string"
+								},
+								"offset": {
+									"type": "integer"
+								},
+								"length": {
+									"type": "integer"
+								},
+								"replacements": {
+									"type": "nested",
+									"properties": {
+										"value": {
+											"type": "string"
+										}
+									}
+								},
+								"context": {
+									"type": "object",
+									"properties": {
+										"text": {
+											"type": "string"
+										},
+										"offset": {
+											"type": "integer"
+										},
+										"length": {
+											"type": "integer"
+										}
+									}
+								},
+								"sentence": {
+									"type": "string"
+								},
+								"rule": {
+									"type": "object",
+									"properties": {
+										"id": {
+											"type": "string"
+										},
+										"subId": {
+											"type": "string"
+										},
+										"description": {
+											"type": "string"
+										},
+										"urls": {
+											"type": "nested",
+											"properties": {
+												"value": {
+													"type": "string"
+												}
+											}
+										},
+										"issueType": {
+											"type": "string"
+										},
+										"category": {
+											"type": "object",
+											"properties": {
+												"id": {
+													"type": "string"
+												},
+												"name": {
+													"type": "string"
+												}
+											}
+										}
+									}
+								}
+							}
+						},
+						"valid": {
+							"type": "boolean"
+						}
+					}
 				},
 				"valid": {
 					"type": "boolean"
