@@ -9,20 +9,24 @@ import (
 
 const mapping = `
 {
+	"settings":{
+		"number_of_shards": 1,
+		"number_of_replicas": 0
+	},
 	"mappings":{
 		"file":{
 			"properties": {
 				"path": {
-					"type": "string"
+					"type": "keyword"
 				},
 				"size": {
 					"type": "integer"
 				},
 				"sha": {
-					"type": "string"
+					"type": "keyword"
 				},
 				"url": {
-					"type": "string"
+					"type": "keyword"
 				},
 				"data": {
 					"type": "text"
@@ -34,10 +38,10 @@ const mapping = `
 							"type": "object",
 							"properties": {
 								"message": {
-									"type": "string"
+									"type": "keyword"
 								},
 								"shortMessage": {
-									"type": "string"
+									"type": "keyword"
 								},
 								"offset": {
 									"type": "integer"
@@ -49,7 +53,7 @@ const mapping = `
 									"type": "nested",
 									"properties": {
 										"value": {
-											"type": "string"
+											"type": "text"
 										}
 									}
 								},
@@ -57,7 +61,7 @@ const mapping = `
 									"type": "object",
 									"properties": {
 										"text": {
-											"type": "string"
+											"type": "keyword"
 										},
 										"offset": {
 											"type": "integer"
@@ -68,39 +72,39 @@ const mapping = `
 									}
 								},
 								"sentence": {
-									"type": "string"
+									"type": "keyword"
 								},
 								"rule": {
 									"type": "object",
 									"properties": {
 										"id": {
-											"type": "string"
+											"type": "keyword"
 										},
 										"subId": {
-											"type": "string"
+											"type": "keyword"
 										},
 										"description": {
-											"type": "string"
+											"type": "text"
 										},
 										"urls": {
 											"type": "nested",
 											"properties": {
 												"value": {
-													"type": "string"
+													"type": "text"
 												}
 											}
 										},
 										"issueType": {
-											"type": "string"
+											"type": "keyword"
 										},
 										"category": {
 											"type": "object",
 											"properties": {
 												"id": {
-													"type": "string"
+													"type": "keyword"
 												},
 												"name": {
-													"type": "string"
+													"type": "keyword"
 												}
 											}
 										}

@@ -12,10 +12,8 @@ import (
 type Processer struct {
 	Visitor      *github.Visitor
 	LanguageTool *language.LanguageTool
+	Elastic      *Elastic
 	Rate         time.Duration
-
-	// For debug only, remove after Elasticsearch finished.
-	FileMap map[string]File
 
 	treequeue ratelimiter.Interface
 	blobqueue ratelimiter.Interface
@@ -25,11 +23,17 @@ func NewProcesser(rate int, vis *github.Visitor, lt *language.LanguageTool) (*Pr
 	if rate < 1000 {
 		fmt.Printf("[Warning] API rate exceeded threshold\n")
 	}
+
+	es, err := InitClient("http", "localhost", "9200")
+	if err != nil {
+		return nil, err
+	}
+
 	p := &Processer{
 		Visitor:      vis,
 		LanguageTool: lt,
+		Elastic:      es,
 		Rate:         time.Duration(rate) * time.Millisecond,
-		FileMap:      make(map[string]File),
 
 		treequeue: ratelimiter.New(),
 		blobqueue: ratelimiter.New(),
@@ -97,6 +101,11 @@ func (proc *Processer) processTree(url string) error {
 }
 
 func (proc *Processer) processBlob() error {
+	err := proc.Elastic.CreateIndex("kubernetes")
+	if err != nil {
+		fmt.Printf("[Error] Create index failed: %s\n", err)
+	}
+
 	for {
 		item, shutdown := proc.blobqueue.Dequeue()
 		if shutdown {
@@ -127,6 +136,7 @@ func (proc *Processer) checkTypo(b *github.Blob) {
 	if err != nil {
 		fmt.Println(err)
 	}
+
 	if len(cr.Matches) > 0 {
 		file, err := NewFile(b.Path, b.Size, b.SHA, b.URL, *b.Data)
 		if err != nil {
@@ -135,7 +145,11 @@ func (proc *Processer) checkTypo(b *github.Blob) {
 		for _, match := range cr.Matches {
 			file.AddTypo(*match)
 		}
-		proc.FileMap[file.SHA] = *file
+		// TODO: Elasticsearch operations here.
+		_, err = proc.Elastic.IndexFile("kubernetes", *file)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 }
 
