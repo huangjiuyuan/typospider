@@ -15,7 +15,7 @@ type Processer struct {
 	Rate         time.Duration
 
 	// For debug only, remove after Elasticsearch finished.
-	ContentMap map[string]Content
+	FileMap map[string]File
 
 	treequeue ratelimiter.Interface
 	blobqueue ratelimiter.Interface
@@ -29,7 +29,7 @@ func NewProcesser(rate int, vis *github.Visitor, lt *language.LanguageTool) (*Pr
 		Visitor:      vis,
 		LanguageTool: lt,
 		Rate:         time.Duration(rate) * time.Millisecond,
-		ContentMap:   make(map[string]Content),
+		FileMap:      make(map[string]File),
 
 		treequeue: ratelimiter.New(),
 		blobqueue: ratelimiter.New(),
@@ -64,29 +64,32 @@ func (proc *Processer) processTree(url string) error {
 			break
 		}
 
-		t := item.(*github.Tree)
-		for _, sm := range t.Tree {
-			if sm.Type == "blob" {
-				blob := &github.Blob{
-					Path: setPath(t.Path, sm.Path),
-					Size: *sm.Size,
-					SHA:  sm.SHA,
-					URL:  sm.URL,
-					Data: nil,
+		if t, ok := item.(*github.Tree); ok {
+			for _, sm := range t.Tree {
+				if sm.Type == "blob" {
+					blob := &github.Blob{
+						Path: setPath(t.Path, sm.Path),
+						Size: *sm.Size,
+						SHA:  sm.SHA,
+						URL:  sm.URL,
+						Data: nil,
+					}
+					proc.blobqueue.Enqueue(blob)
+				} else if sm.Type == "tree" {
+					tree, err := proc.Visitor.GetTree(sm.URL)
+					tree.Path = setPath(t.Path, sm.Path)
+					if err != nil {
+						fmt.Printf("[Error] Get tree %s failed\n", t.URL)
+					}
+					proc.treequeue.Enqueue(tree)
 				}
-				proc.blobqueue.Enqueue(blob)
-			} else if sm.Type == "tree" {
-				tree, err := proc.Visitor.GetTree(sm.URL)
-				tree.Path = setPath(t.Path, sm.Path)
-				if err != nil {
-					fmt.Printf("[Error] Get tree %s failed\n", t.URL)
-				}
-				proc.treequeue.Enqueue(tree)
 			}
-		}
 
-		if proc.treequeue.Len() == 0 {
-			proc.treequeue.ShutDown()
+			if proc.treequeue.Len() == 0 {
+				proc.treequeue.ShutDown()
+			}
+		} else {
+			fmt.Printf("[Error] Parse tree %#v failed\n", item)
 		}
 	}
 
@@ -100,15 +103,18 @@ func (proc *Processer) processBlob() error {
 			break
 		}
 
-		b := item.(*github.Blob)
-		data, err := proc.Visitor.GetBlob(b.URL)
-		if err != nil {
-			fmt.Printf("[Error] Get blob %s failed\n", b.URL)
-		}
-		b.Data = &data
-		go proc.checkTypo(b)
-		if proc.treequeue.ShuttingDown() {
-			proc.blobqueue.ShutDown()
+		if b, ok := item.(*github.Blob); ok {
+			data, err := proc.Visitor.GetBlob(b.URL)
+			if err != nil {
+				fmt.Printf("[Error] Get blob %s failed\n", b.URL)
+			}
+			b.Data = &data
+			go proc.checkTypo(b)
+			if proc.treequeue.ShuttingDown() {
+				proc.blobqueue.ShutDown()
+			}
+		} else {
+			fmt.Printf("[Error] Parse blob %#v failed\n", item)
 		}
 	}
 
@@ -122,14 +128,14 @@ func (proc *Processer) checkTypo(b *github.Blob) {
 		fmt.Println(err)
 	}
 	if len(cr.Matches) > 0 {
-		content, err := NewContent(b.Path, b.Size, b.SHA, b.URL, *b.Data)
+		file, err := NewFile(b.Path, b.Size, b.SHA, b.URL, *b.Data)
 		if err != nil {
-			fmt.Printf("[Error] Create content %s failed\n", b.Path)
+			fmt.Printf("[Error] Create file %s failed\n", b.Path)
 		}
 		for _, match := range cr.Matches {
-			content.AddTypo(*match)
+			file.AddTypo(*match)
 		}
-		proc.ContentMap[content.SHA] = *content
+		proc.FileMap[file.SHA] = *file
 	}
 }
 

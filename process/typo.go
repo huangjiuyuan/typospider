@@ -4,7 +4,7 @@ import (
 	"github.com/huangjiuyuan/typospider/language"
 )
 
-type Content struct {
+type File struct {
 	Path  string `json:"path"`
 	Size  int    `json:"size"`
 	SHA   string `json:"sha"`
@@ -19,8 +19,8 @@ type Typo struct {
 	Valid bool `json:"valid"`
 }
 
-func NewContent(path string, size int, sha string, url string, data []byte) (*Content, error) {
-	c := new(Content)
+func NewFile(path string, size int, sha string, url string, data []byte) (*File, error) {
+	c := new(File)
 	c.Path = path
 	c.Size = size
 	c.SHA = sha
@@ -30,7 +30,7 @@ func NewContent(path string, size int, sha string, url string, data []byte) (*Co
 	return c, nil
 }
 
-func (c *Content) AddTypo(match language.Match) error {
+func (c *File) AddTypo(match language.Match) error {
 	typo := &Typo{
 		Match: match,
 		Valid: true,
