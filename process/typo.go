@@ -19,30 +19,32 @@ type File struct {
 
 type Typo struct {
 	SHA   string         `json:"sha"`
+	File  string         `json:"file"`
 	Match language.Match `json:"match"`
 	Valid bool           `json:"valid"`
 }
 
 func NewFile(path string, size int, sha string, url string, data []byte) (*File, error) {
-	c := new(File)
-	c.Path = path
-	c.Size = size
-	c.SHA = sha
-	c.URL = url
-	c.Data = data
-	c.Valid = true
-	return c, nil
+	file := new(File)
+	file.Path = path
+	file.Size = size
+	file.SHA = sha
+	file.URL = url
+	file.Data = data
+	file.Valid = true
+	return file, nil
 }
 
-func (c *File) AddTypo(match language.Match) (*Typo, error) {
+func (file *File) AddTypo(match language.Match) (*Typo, error) {
 	text := match.Context.Text
 	hash := sha1.New()
 	hash.Write([]byte(text))
 	sha := hex.EncodeToString(hash.Sum(nil))
-	c.Typos = append(c.Typos, sha)
+	file.Typos = append(file.Typos, sha)
 
 	typo := &Typo{
 		SHA:   sha,
+		File:  file.SHA,
 		Match: match,
 		Valid: true,
 	}
