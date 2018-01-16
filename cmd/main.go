@@ -19,13 +19,10 @@ func main() {
 		fmt.Println(err)
 	}
 
-	proc, err := process.NewProcesser(1000, vis, lt)
+	proc, err := process.NewProcesser(1000, vis, lt, true)
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	proc.Elastic.DeleteIndex("kubernetes")
-	proc.Elastic.DeleteIndex("typo")
 
 	go proc.ProcessTree("https://api.github.com/repos/kubernetes/kubernetes/git/trees/cec41ac042ea6ac18cf70b7d6f38500b9723e6cb")
 	proc.ProcessBlob()

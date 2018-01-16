@@ -12,7 +12,7 @@ type File struct {
 	Size  int      `json:"size"`
 	SHA   string   `json:"sha"`
 	URL   string   `json:"url"`
-	Data  []byte   `json:"data"`
+	Data  string   `json:"data"`
 	Typos []string `json:"typos"`
 	Valid bool     `json:"valid"`
 }
@@ -30,7 +30,7 @@ func NewFile(path string, size int, sha string, url string, data []byte) (*File,
 	file.Size = size
 	file.SHA = sha
 	file.URL = url
-	file.Data = data
+	file.Data = string(data)
 	file.Valid = true
 	return file, nil
 }

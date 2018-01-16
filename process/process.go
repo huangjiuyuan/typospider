@@ -19,12 +19,12 @@ type Processer struct {
 	blobqueue ratelimiter.Interface
 }
 
-func NewProcesser(rate int, vis *github.Visitor, lt *language.LanguageTool) (*Processer, error) {
+func NewProcesser(rate int, vis *github.Visitor, lt *language.LanguageTool, initialize bool) (*Processer, error) {
 	if rate < 1000 {
 		fmt.Printf("[Warning] API rate exceeded threshold\n")
 	}
 
-	es, err := InitClient("http", "localhost", "9200")
+	es, err := InitClient("http", "localhost", "9200", initialize)
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +70,10 @@ func (proc *Processer) processTree(url string) error {
 
 		if t, ok := item.(*github.Tree); ok {
 			for _, sm := range t.Tree {
+				if sm.Path == "vendor" || sm.Path == "staging" {
+					continue
+				}
+
 				if sm.Type == "blob" {
 					blob := &github.Blob{
 						Path: setPath(t.Path, sm.Path),
@@ -123,7 +127,7 @@ func (proc *Processer) processBlob() error {
 				fmt.Printf("[Error] Get blob %s failed: %s\n", b.URL, err)
 			}
 			b.Data = &data
-			go proc.checkTypo(b)
+			go proc.processTypo(b)
 			if proc.treequeue.ShuttingDown() {
 				proc.blobqueue.ShutDown()
 			}
@@ -135,7 +139,7 @@ func (proc *Processer) processBlob() error {
 	return nil
 }
 
-func (proc *Processer) checkTypo(b *github.Blob) {
+func (proc *Processer) processTypo(b *github.Blob) {
 	lt := proc.LanguageTool
 	cr, err := lt.Check(string(*b.Data), "en", "", "", "", "", "", "", false)
 	if err != nil {
@@ -150,24 +154,59 @@ func (proc *Processer) checkTypo(b *github.Blob) {
 		}
 
 		for _, match := range cr.Matches {
-			typo, err := file.AddTypo(*match)
-			if err != nil {
-				fmt.Printf("[Error] Add typo %s failed: %s\n", match.Context.Text, err)
-				break
-			}
+			valid := filterTypo(match)
+			if valid {
+				typo, err := file.AddTypo(*match)
+				if err != nil {
+					fmt.Printf("[Error] Add typo %s failed: %s\n", match.Context.Text, err)
+					continue
+				}
 
-			_, err = proc.Elastic.IndexTypo("typo", *typo)
-			if err != nil {
-				fmt.Printf("[Error] Index typo %s failed: %s\n", typo.Match.Context.Text, err)
-				break
+				_, err = proc.Elastic.IndexTypo("typo", *typo)
+				if err != nil {
+					fmt.Printf("[Error] Index typo %s failed: %s\n", typo.Match.Context.Text, err)
+					continue
+				}
 			}
 		}
 
-		_, err = proc.Elastic.IndexFile("kubernetes", *file)
-		if err != nil {
-			fmt.Printf("[Error] Index file %s failed: %s\n", file.SHA, err)
+		if len(file.Typos) > 0 {
+			_, err = proc.Elastic.IndexFile("kubernetes", *file)
+			if err != nil {
+				fmt.Printf("[Error] Index file %s failed: %s\n", file.SHA, err)
+			}
 		}
 	}
+}
+
+func filterTypo(match *language.Match) bool {
+	if match.Rule.ID == "EN_QUOTES" {
+		return false
+	} else if match.Rule.ID == "SENTENCE_WHITESPACE" {
+		return false
+	} else if match.Rule.ID == "COMMA_PARENTHESIS_WHITESPACE" {
+		return false
+	} else if match.Rule.ID == "UPPERCASE_SENTENCE_START" {
+		return false
+	} else if match.Rule.ID == "WHITESPACE_RULE" {
+		return false
+	} else if match.Rule.ID == "ENGLISH_WORD_REPEAT_BEGINNING_RULE" {
+		return false
+	} else if match.Rule.ID == "DASH_RULE" {
+		return false
+	} else if match.Rule.ID == "DOUBLE_PUNCTUATION" {
+		return false
+	} else if match.Rule.ID == "SENTENCE_FRAGMENT" {
+		return false
+	} else if match.Rule.ID == "EN_UNPAIRED_BRACKETS" {
+		return false
+	} else if match.Rule.ID == "ENGLISH_WORD_REPEAT_RULE" {
+		return false
+	} else if match.Rule.ID == "THE_SENT_END" {
+		return false
+	}
+
+	return true
 }
 
 func setPath(parent string, current string) string {

@@ -133,8 +133,9 @@ const typoMapping = `
 }`
 
 type Elastic struct {
-	Endpoint string
-	Version  string
+	Endpoint   string
+	Version    string
+	Initialize bool
 
 	fileMapping string
 	typoMapping string
@@ -142,7 +143,7 @@ type Elastic struct {
 	client      *elastic.Client
 }
 
-func InitClient(scheme string, host string, port string) (*Elastic, error) {
+func InitClient(scheme string, host string, port string, initialize bool) (*Elastic, error) {
 	ep := scheme + "://" + host + ":" + port
 	ctx := context.Background()
 
@@ -157,8 +158,9 @@ func InitClient(scheme string, host string, port string) (*Elastic, error) {
 	}
 
 	return &Elastic{
-		Endpoint: ep,
-		Version:  version,
+		Endpoint:   ep,
+		Version:    version,
+		Initialize: initialize,
 
 		fileMapping: fileMapping,
 		typoMapping: typoMapping,
@@ -168,13 +170,20 @@ func InitClient(scheme string, host string, port string) (*Elastic, error) {
 }
 
 func (es *Elastic) CreateFileIndex(index string) error {
-	exists, err := es.client.IndexExists(index).Do(es.ctx)
-	if err != nil {
-		return err
-	}
+	if es.Initialize {
+		err := es.DeleteIndex(index)
+		if err != nil {
+			return err
+		}
+	} else {
+		exists, err := es.client.IndexExists(index).Do(es.ctx)
+		if err != nil {
+			return err
+		}
 
-	if exists {
-		return fmt.Errorf("index %s already exists", index)
+		if exists {
+			return fmt.Errorf("index %s already exists", index)
+		}
 	}
 
 	result, err := es.client.CreateIndex(index).BodyString(es.fileMapping).Do(es.ctx)
@@ -189,13 +198,20 @@ func (es *Elastic) CreateFileIndex(index string) error {
 }
 
 func (es *Elastic) CreateTypoIndex(index string) error {
-	exists, err := es.client.IndexExists(index).Do(es.ctx)
-	if err != nil {
-		return err
-	}
+	if es.Initialize {
+		err := es.DeleteIndex(index)
+		if err != nil {
+			return err
+		}
+	} else {
+		exists, err := es.client.IndexExists(index).Do(es.ctx)
+		if err != nil {
+			return err
+		}
 
-	if exists {
-		return fmt.Errorf("index %s already exists", index)
+		if exists {
+			return fmt.Errorf("index %s already exists", index)
+		}
 	}
 
 	result, err := es.client.CreateIndex(index).BodyString(es.typoMapping).Do(es.ctx)
