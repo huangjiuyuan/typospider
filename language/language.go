@@ -8,10 +8,13 @@ import (
 	"net/url"
 )
 
+// LanguageTool is for visiting languagetool API.
 type LanguageTool struct {
+	// Addr represents the address of languagetool server.
 	Addr string
 }
 
+// CheckResult is the response of check request.
 type CheckResult struct {
 	Software Software `json:"software"`
 	Warnings Warnings `json:"warnings"`
@@ -19,64 +22,104 @@ type CheckResult struct {
 	Matches  []*Match `json:"matches"`
 }
 
+// Software is the software information.
 type Software struct {
-	Name       string  `json:"name"`
-	Version    string  `json:"version"`
-	BuildDate  string  `json:"buildDate"`
-	APIVersion int     `json:"apiVersion"`
-	Status     *string `json:"status"`
+	// Usually "LanguageTool".
+	Name string `json:"name"`
+	// A version string like "3.3".
+	Version string `json:"version"`
+	// Date when the software was built.
+	BuildDate string `json:"buildDate"`
+	// Version of this API response.
+	APIVersion int `json:"apiVersion"`
+	// An optional warning.
+	Status *string `json:"status"`
 }
 
+// Warnings containes warning from the server.
 type Warnings struct {
+	// IncompleteResults represents whether the result is incomplete.
 	IncompleteResults bool `json:"incompleteResults"`
 }
 
+// Language information.
 type Language struct {
+	// Language name.
 	Name string `json:"name"`
+	// ISO 639-1 code like "en", "en-US", or "ca-ES-valencia".
 	Code string `json:"code"`
 }
 
+// Match represents an error in the text.
 type Match struct {
-	Message      string         `json:"message"`
-	ShortMessage *string        `json:"shortMessage"`
-	Offset       int            `json:"offset"`
-	Length       int            `json:"length"`
+	// Message about the error displayed to the user.
+	Message string `json:"message"`
+	// An optional shorter version of message.
+	ShortMessage *string `json:"shortMessage"`
+	// The 0-based character offset of the error in the text.
+	Offset int `json:"offset"`
+	// The length of the error in characters.
+	Length int `json:"length"`
+	// Replacements that might correct the error.
 	Replacements []*Replacement `json:"replacements"`
-	Context      Context        `json:"context"`
-	Sentence     string         `json:"sentence"`
-	Rule         Rule           `json:"rule"`
+	// Context of the error.
+	Context Context `json:"context"`
+	// The sentence the error occurred in.
+	Sentence string `json:"sentence"`
+	// Rule violated by the error.
+	Rule Rule `json:"rule"`
 }
 
+// Replacement that might correct the error.
 type Replacement struct {
+	// The replacement string.
 	Value *string `json:"value"`
 }
 
+// Context of the error.
 type Context struct {
-	Text   string `json:"text"`
-	Offset int    `json:"offset"`
-	Length int    `json:"length"`
+	// The error and some text to the left and to the right.
+	Text string `json:"text"`
+	// The 0-based character offset of the error in the text.
+	Offset int `json:"offset"`
+	// The length of the error in characters in the context.
+	Length int `json:"length"`
 }
 
+// Rule violated by the error.
 type Rule struct {
-	ID          string   `json:"id"`
-	SubID       *string  `json:"subId"`
-	Description string   `json:"description"`
-	URLs        []*URL   `json:"urls"`
-	IssueType   *string  `json:"issueType"`
-	Category    Category `json:"category"`
+	// An rule's identifier that's unique for this language.
+	ID string `json:"id"`
+	// An optional sub identifier of the rule, used when several rules are grouped.
+	SubID *string `json:"subId"`
+	// Description of the rule.
+	Description string `json:"description"`
+	// An optional array of URLs with a more detailed description of the error.
+	URLs []*URL `json:"urls"`
+	// The Localization Quality Issue Type.
+	IssueType *string `json:"issueType"`
+	// Category represents the error type.
+	Category Category `json:"category"`
 }
 
+// URL with a more detailed description of the error.
 type URL struct {
+	// The URL.
 	Value *string `json:"value"`
 }
 
+// Category represents the error type.
 type Category struct {
-	ID   *string `json:"id"`
+	// A category's identifier that's unique for this language.
+	ID *string `json:"id"`
+	// A short description of the category.
 	Name *string `json:"name"`
 }
 
+// LanguagesResult is the response of languages request.
 type LanguagesResult []Language
 
+// NewLanguageTool returns a LanguageTool with an error if necessary.
 func NewLanguageTool(host string, port string) (*LanguageTool, error) {
 	if host == "" {
 		return nil, fmt.Errorf("cannot use an empty host")
@@ -86,11 +129,13 @@ func NewLanguageTool(host string, port string) (*LanguageTool, error) {
 			Addr: host,
 		}, nil
 	}
+
 	return &LanguageTool{
 		Addr: host + ":" + port,
 	}, nil
 }
 
+// NewCheckBody returns a body for check request.
 func (lt *LanguageTool) NewCheckBody(
 	text string,
 	language string,
@@ -120,6 +165,7 @@ func (lt *LanguageTool) NewCheckBody(
 		}
 		return []string{"false"}
 	}
+
 	cb := url.Values{
 		"text":               {text},
 		"language":           {language},
@@ -135,6 +181,7 @@ func (lt *LanguageTool) NewCheckBody(
 	return cb, nil
 }
 
+// Check requests the check API.
 func (lt *LanguageTool) Check(
 	text string,
 	language string,
@@ -179,12 +226,14 @@ func (lt *LanguageTool) Check(
 	return cr, nil
 }
 
+// Languages request the languages API.
 func (lt *LanguageTool) Languages() (*LanguagesResult, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", lt.GetURL("", lt.Addr, "/v2/languages"), nil)
 	if err != nil {
 		return nil, fmt.Errorf("error on creating new request: %s", err)
 	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error on requesting languages: %s", err)
@@ -205,6 +254,7 @@ func (lt *LanguageTool) Languages() (*LanguagesResult, error) {
 	return lr, nil
 }
 
+// GetURL returns the url for sending requests.
 func (lt *LanguageTool) GetURL(scheme string, host string, path string) string {
 	if scheme == "" {
 		scheme = "http"

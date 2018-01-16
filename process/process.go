@@ -9,27 +9,40 @@ import (
 	"github.com/huangjiuyuan/typospider/util/ratelimiter"
 )
 
+// Processer contains a Visitor to visit GitHub API, a LanguageTool to check the texts, a Elastic
+// agent to operate on a Elasticsearch server, and a Tokenizer to tokenize context of a file. It produces
+// trees by visiting GitHub API, and produces blobs by consuming trees it produces.
 type Processer struct {
-	Visitor      *github.Visitor
+	// Visitor to visit GitHub API.
+	Visitor *github.Visitor
+	// LanguageTool to check the texts.
 	LanguageTool *language.LanguageTool
-	Elastic      *Elastic
-	Tokenizer    *Tokenizer
-	Rate         time.Duration
+	// Elastic agent to operate on a Elasticsearch server.
+	Elastic *Elastic
+	// Tokenizer to tokenize context of a file.
+	Tokenizer *Tokenizer
+	// Rate of the GitHub visitor.
+	Rate time.Duration
 
+	// Thread safe rate limiting queue for processing trees.
 	treequeue ratelimiter.Interface
+	// Thread safe rate limiting queue for processing blobs.
 	blobqueue ratelimiter.Interface
 }
 
+// NewProcesser returns a Processer with an error if necessary.
 func NewProcesser(rate int, vis *github.Visitor, lt *language.LanguageTool, initialize bool) (*Processer, error) {
 	if rate < 1000 {
 		fmt.Printf("[Warning] API rate exceeded threshold\n")
 	}
 
+	// Create the Elasticsearch client.
 	es, err := InitClient("http", "localhost", "9200", initialize)
 	if err != nil {
 		return nil, err
 	}
 
+	// Create the tokenizer.
 	tk, err := NewTokenizer()
 	if err != nil {
 		return nil, err
@@ -45,9 +58,11 @@ func NewProcesser(rate int, vis *github.Visitor, lt *language.LanguageTool, init
 		treequeue: ratelimiter.New(),
 		blobqueue: ratelimiter.New(),
 	}
+
 	return p, nil
 }
 
+// ProcessTree wraps the tree processing function.
 func (proc *Processer) ProcessTree(url string) {
 	err := proc.processTree(url)
 	if err != nil {
@@ -55,6 +70,7 @@ func (proc *Processer) ProcessTree(url string) {
 	}
 }
 
+// ProcessBlob wraps the blob processing function.
 func (proc *Processer) ProcessBlob() {
 	err := proc.processBlob()
 	if err != nil {
@@ -63,6 +79,7 @@ func (proc *Processer) ProcessBlob() {
 }
 
 func (proc *Processer) processTree(url string) error {
+	// Produce a tree then enqueue to the tree queue.
 	t, err := proc.Visitor.GetTree(url)
 	if err != nil {
 		return err
@@ -70,6 +87,7 @@ func (proc *Processer) processTree(url string) error {
 	proc.treequeue.Enqueue(t)
 
 	for {
+		// Shut down if received a signal from dequeue operation.
 		item, shutdown := proc.treequeue.Dequeue()
 		if shutdown {
 			break
@@ -77,11 +95,13 @@ func (proc *Processer) processTree(url string) error {
 
 		if t, ok := item.(*github.Tree); ok {
 			for _, sm := range t.Tree {
+				// Skip "vendor" and "staging" folders.
 				if sm.Path == "vendor" || sm.Path == "staging" {
 					continue
 				}
 
 				if sm.Type == "blob" {
+					// Produce a blob then enqueue to the blob queue if the submodule is a blob.
 					blob := &github.Blob{
 						Path: setPath(t.Path, sm.Path),
 						Size: *sm.Size,
@@ -91,6 +111,7 @@ func (proc *Processer) processTree(url string) error {
 					}
 					proc.blobqueue.Enqueue(blob)
 				} else if sm.Type == "tree" {
+					// Produce a tree then enqueue to the tree queue if the submodule is a tree.
 					tree, err := proc.Visitor.GetTree(sm.URL)
 					tree.Path = setPath(t.Path, sm.Path)
 					if err != nil {
@@ -100,6 +121,7 @@ func (proc *Processer) processTree(url string) error {
 				}
 			}
 
+			// Send a signal if the tree queue is done and no tree is produced.
 			if proc.treequeue.Len() == 0 {
 				proc.treequeue.ShutDown()
 			}
@@ -112,17 +134,20 @@ func (proc *Processer) processTree(url string) error {
 }
 
 func (proc *Processer) processBlob() error {
+	// Create the project index.
 	err := proc.Elastic.CreateFileIndex("kubernetes")
 	if err != nil {
 		fmt.Printf("[Error] Create index failed: %s\n", err)
 	}
 
+	// Create the typo index.
 	err = proc.Elastic.CreateTypoIndex("typo")
 	if err != nil {
 		fmt.Printf("[Error] Create index failed: %s\n", err)
 	}
 
 	for {
+		// Shut down if received a signal from dequeue operation.
 		item, shutdown := proc.blobqueue.Dequeue()
 		if shutdown {
 			break
@@ -134,7 +159,10 @@ func (proc *Processer) processBlob() error {
 				fmt.Printf("[Error] Get blob %s failed: %s\n", b.URL, err)
 			}
 			b.Data = &data
+			// Process the typo produced by the blob.
 			go proc.processTypo(b)
+
+			// Send a signal if the tree queue is done and no tree is produced.
 			if proc.treequeue.ShuttingDown() {
 				proc.blobqueue.ShutDown()
 			}
@@ -147,17 +175,20 @@ func (proc *Processer) processBlob() error {
 }
 
 func (proc *Processer) processTypo(b *github.Blob) {
+	// Create a file from the blob.
 	file, err := NewFile(b.Path, b.Size, b.SHA, b.URL, *b.Data)
 	if err != nil {
 		fmt.Printf("[Error] Create file %s failed: %s\n", b.Path, err)
 		return
 	}
 
+	// Tokenize the file context.
 	err = proc.Tokenizer.Tokenize(file)
 	if err != nil {
 		fmt.Println(err)
 	}
 
+	// Check error for each token.
 	for _, token := range file.Tokens {
 		cr, err := proc.LanguageTool.Check(token, "en", "", "", "", "", "", "", false)
 		if err != nil {
@@ -166,14 +197,17 @@ func (proc *Processer) processTypo(b *github.Blob) {
 
 		if len(cr.Matches) > 0 {
 			for _, match := range cr.Matches {
+				// Filter out any invalid typo.
 				valid := filterTypo(match)
 				if valid {
+					// Add a typo to the file if it is valid.
 					typo, err := file.AddTypo(*match)
 					if err != nil {
 						fmt.Printf("[Error] Add typo %s failed: %s\n", match.Context.Text, err)
 						continue
 					}
 
+					// Index the typo to Elasticsearch.
 					_, err = proc.Elastic.IndexTypo("typo", *typo)
 					if err != nil {
 						fmt.Printf("[Error] Index typo %s failed: %s\n", typo.Match.Context.Text, err)
@@ -184,6 +218,7 @@ func (proc *Processer) processTypo(b *github.Blob) {
 		}
 	}
 
+	// If the file contains any typo, index the file to Elasticsearch.
 	if len(file.Typos) > 0 {
 		_, err = proc.Elastic.IndexFile("kubernetes", *file)
 		if err != nil {
