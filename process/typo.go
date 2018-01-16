@@ -1,22 +1,26 @@
 package process
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
+
 	"github.com/huangjiuyuan/typospider/language"
 )
 
 type File struct {
-	Path  string `json:"path"`
-	Size  int    `json:"size"`
-	SHA   string `json:"sha"`
-	URL   string `json:"url"`
-	Data  []byte `json:"data"`
-	Typos []Typo `json:"typos"`
-	Valid bool   `json:"valid"`
+	Path  string   `json:"path"`
+	Size  int      `json:"size"`
+	SHA   string   `json:"sha"`
+	URL   string   `json:"url"`
+	Data  []byte   `json:"data"`
+	Typos []string `json:"typos"`
+	Valid bool     `json:"valid"`
 }
 
 type Typo struct {
-	Match language.Match
-	Valid bool `json:"valid"`
+	SHA   string         `json:"sha"`
+	Match language.Match `json:"match"`
+	Valid bool           `json:"valid"`
 }
 
 func NewFile(path string, size int, sha string, url string, data []byte) (*File, error) {
@@ -30,11 +34,18 @@ func NewFile(path string, size int, sha string, url string, data []byte) (*File,
 	return c, nil
 }
 
-func (c *File) AddTypo(match language.Match) error {
+func (c *File) AddTypo(match language.Match) (*Typo, error) {
+	text := match.Context.Text
+	hash := sha1.New()
+	hash.Write([]byte(text))
+	sha := hex.EncodeToString(hash.Sum(nil))
+	c.Typos = append(c.Typos, sha)
+
 	typo := &Typo{
+		SHA:   sha,
 		Match: match,
 		Valid: true,
 	}
-	c.Typos = append(c.Typos, *typo)
-	return nil
+
+	return typo, nil
 }

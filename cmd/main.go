@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	vis, err := github.NewVisitor(false, "8aa4ed1f7d0442266274dfd9701e92c9b6535ecc")
+	vis, err := github.NewVisitor(false, "9a0ebc960d050a10f2fbaca29399ee38b12ae61c")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -23,6 +23,9 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	proc.Elastic.DeleteIndex("kubernetes")
+	proc.Elastic.DeleteIndex("typo")
 
 	go proc.ProcessTree("https://api.github.com/repos/kubernetes/kubernetes/git/trees/cec41ac042ea6ac18cf70b7d6f38500b9723e6cb")
 	proc.ProcessBlob()

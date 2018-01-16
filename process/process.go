@@ -83,7 +83,7 @@ func (proc *Processer) processTree(url string) error {
 					tree, err := proc.Visitor.GetTree(sm.URL)
 					tree.Path = setPath(t.Path, sm.Path)
 					if err != nil {
-						fmt.Printf("[Error] Get tree %s failed\n", t.URL)
+						fmt.Printf("[Error] Get tree %s failed: %s\n", t.URL, err)
 					}
 					proc.treequeue.Enqueue(tree)
 				}
@@ -101,7 +101,12 @@ func (proc *Processer) processTree(url string) error {
 }
 
 func (proc *Processer) processBlob() error {
-	err := proc.Elastic.CreateIndex("kubernetes")
+	err := proc.Elastic.CreateFileIndex("kubernetes")
+	if err != nil {
+		fmt.Printf("[Error] Create index failed: %s\n", err)
+	}
+
+	err = proc.Elastic.CreateTypoIndex("typo")
 	if err != nil {
 		fmt.Printf("[Error] Create index failed: %s\n", err)
 	}
@@ -115,7 +120,7 @@ func (proc *Processer) processBlob() error {
 		if b, ok := item.(*github.Blob); ok {
 			data, err := proc.Visitor.GetBlob(b.URL)
 			if err != nil {
-				fmt.Printf("[Error] Get blob %s failed\n", b.URL)
+				fmt.Printf("[Error] Get blob %s failed: %s\n", b.URL, err)
 			}
 			b.Data = &data
 			go proc.checkTypo(b)
@@ -140,15 +145,27 @@ func (proc *Processer) checkTypo(b *github.Blob) {
 	if len(cr.Matches) > 0 {
 		file, err := NewFile(b.Path, b.Size, b.SHA, b.URL, *b.Data)
 		if err != nil {
-			fmt.Printf("[Error] Create file %s failed\n", b.Path)
+			fmt.Printf("[Error] Create file %s failed: %s\n", b.Path, err)
+			return
 		}
+
 		for _, match := range cr.Matches {
-			file.AddTypo(*match)
+			typo, err := file.AddTypo(*match)
+			if err != nil {
+				fmt.Printf("[Error] Add typo %s failed: %s\n", match.Context.Text, err)
+				break
+			}
+
+			_, err = proc.Elastic.IndexTypo("typo", *typo)
+			if err != nil {
+				fmt.Printf("[Error] Index typo %s failed: %s\n", typo.Match.Context.Text, err)
+				break
+			}
 		}
-		// TODO: Elasticsearch operations here.
+
 		_, err = proc.Elastic.IndexFile("kubernetes", *file)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("[Error] Index file %s failed: %s\n", file.SHA, err)
 		}
 	}
 }
