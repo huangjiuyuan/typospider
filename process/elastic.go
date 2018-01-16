@@ -26,6 +26,9 @@ const fileMapping = `
                 },
                 "data":{
                     "type":"text"
+				},
+				"tokens":{
+                    "type":"text"
                 },
                 "typos":{
                     "type":"text"

@@ -13,6 +13,7 @@ type Processer struct {
 	Visitor      *github.Visitor
 	LanguageTool *language.LanguageTool
 	Elastic      *Elastic
+	Tokenizer    *Tokenizer
 	Rate         time.Duration
 
 	treequeue ratelimiter.Interface
@@ -29,10 +30,16 @@ func NewProcesser(rate int, vis *github.Visitor, lt *language.LanguageTool, init
 		return nil, err
 	}
 
+	tk, err := NewTokenizer()
+	if err != nil {
+		return nil, err
+	}
+
 	p := &Processer{
 		Visitor:      vis,
 		LanguageTool: lt,
 		Elastic:      es,
+		Tokenizer:    tk,
 		Rate:         time.Duration(rate) * time.Millisecond,
 
 		treequeue: ratelimiter.New(),
@@ -140,41 +147,47 @@ func (proc *Processer) processBlob() error {
 }
 
 func (proc *Processer) processTypo(b *github.Blob) {
-	lt := proc.LanguageTool
-	cr, err := lt.Check(string(*b.Data), "en", "", "", "", "", "", "", false)
+	file, err := NewFile(b.Path, b.Size, b.SHA, b.URL, *b.Data)
+	if err != nil {
+		fmt.Printf("[Error] Create file %s failed: %s\n", b.Path, err)
+		return
+	}
+
+	err = proc.Tokenizer.Tokenize(file)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	if len(cr.Matches) > 0 {
-		file, err := NewFile(b.Path, b.Size, b.SHA, b.URL, *b.Data)
+	for _, token := range file.Tokens {
+		cr, err := proc.LanguageTool.Check(token, "en", "", "", "", "", "", "", false)
 		if err != nil {
-			fmt.Printf("[Error] Create file %s failed: %s\n", b.Path, err)
-			return
+			fmt.Println(err)
 		}
 
-		for _, match := range cr.Matches {
-			valid := filterTypo(match)
-			if valid {
-				typo, err := file.AddTypo(*match)
-				if err != nil {
-					fmt.Printf("[Error] Add typo %s failed: %s\n", match.Context.Text, err)
-					continue
-				}
+		if len(cr.Matches) > 0 {
+			for _, match := range cr.Matches {
+				valid := filterTypo(match)
+				if valid {
+					typo, err := file.AddTypo(*match)
+					if err != nil {
+						fmt.Printf("[Error] Add typo %s failed: %s\n", match.Context.Text, err)
+						continue
+					}
 
-				_, err = proc.Elastic.IndexTypo("typo", *typo)
-				if err != nil {
-					fmt.Printf("[Error] Index typo %s failed: %s\n", typo.Match.Context.Text, err)
-					continue
+					_, err = proc.Elastic.IndexTypo("typo", *typo)
+					if err != nil {
+						fmt.Printf("[Error] Index typo %s failed: %s\n", typo.Match.Context.Text, err)
+						continue
+					}
 				}
 			}
 		}
+	}
 
-		if len(file.Typos) > 0 {
-			_, err = proc.Elastic.IndexFile("kubernetes", *file)
-			if err != nil {
-				fmt.Printf("[Error] Index file %s failed: %s\n", file.SHA, err)
-			}
+	if len(file.Typos) > 0 {
+		_, err = proc.Elastic.IndexFile("kubernetes", *file)
+		if err != nil {
+			fmt.Printf("[Error] Index file %s failed: %s\n", file.SHA, err)
 		}
 	}
 }

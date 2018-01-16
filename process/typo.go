@@ -8,13 +8,14 @@ import (
 )
 
 type File struct {
-	Path  string   `json:"path"`
-	Size  int      `json:"size"`
-	SHA   string   `json:"sha"`
-	URL   string   `json:"url"`
-	Data  string   `json:"data"`
-	Typos []string `json:"typos"`
-	Valid bool     `json:"valid"`
+	Path   string   `json:"path"`
+	Size   int      `json:"size"`
+	SHA    string   `json:"sha"`
+	URL    string   `json:"url"`
+	Data   string   `json:"data"`
+	Tokens []string `json:"tokens"`
+	Typos  []string `json:"typos"`
+	Valid  bool     `json:"valid"`
 }
 
 type Typo struct {
