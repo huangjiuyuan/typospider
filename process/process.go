@@ -11,7 +11,7 @@ import (
 )
 
 // Processer contains a Visitor to visit GitHub API, a LanguageTool to check the texts, a Elastic
-// agent to operate on a Elasticsearch server, and a Tokenizer to tokenize context of a file. It produces
+// agent to operate on a Elasticsearch server, and a Tokenizer to tokenize text of a file. It produces
 // trees by visiting GitHub API, and produces blobs by consuming trees it produces.
 type Processer struct {
 	// Visitor to visit GitHub API.
@@ -20,7 +20,7 @@ type Processer struct {
 	LanguageTool *language.LanguageTool
 	// Elastic agent to operate on a Elasticsearch server.
 	Elastic *Elastic
-	// Tokenizer to tokenize context of a file.
+	// Tokenizer to tokenize text of a file.
 	Tokenizer *Tokenizer
 	// Rate of the GitHub visitor.
 	Rate time.Duration
@@ -195,7 +195,7 @@ func (proc *Processer) processTypo(b *github.Blob) {
 		return
 	}
 
-	// Tokenize the file context.
+	// Tokenize the file text.
 	tokens, err := proc.Tokenizer.Tokenize(file.Data)
 	if err != nil {
 		fmt.Println(err)
