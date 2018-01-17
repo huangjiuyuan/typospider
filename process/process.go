@@ -2,6 +2,7 @@ package process
 
 import (
 	"fmt"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -108,15 +109,17 @@ func (proc *Processer) processTree(url string) error {
 				}
 
 				if sm.Type == "blob" {
-					// Produce a blob then enqueue to the blob queue if the submodule is a blob.
-					blob := &github.Blob{
-						Path: setPath(t.Path, sm.Path),
-						Size: *sm.Size,
-						SHA:  sm.SHA,
-						URL:  sm.URL,
-						Data: nil,
+					// Produce a blob then enqueue to the blob queue if the submodule is a valid blob.
+					if filepath.Ext(sm.Path) == ".go" {
+						blob := &github.Blob{
+							Path: setPath(t.Path, sm.Path),
+							Size: *sm.Size,
+							SHA:  sm.SHA,
+							URL:  sm.URL,
+							Data: nil,
+						}
+						proc.blobqueue.Enqueue(blob)
 					}
-					proc.blobqueue.Enqueue(blob)
 				} else if sm.Type == "tree" {
 					// Produce a tree then enqueue to the tree queue if the submodule is a tree.
 					tree, err := proc.Visitor.GetTree(sm.URL)
@@ -252,25 +255,15 @@ func filterTypo(match *language.Match) bool {
 		return false
 	} else if match.Rule.ID == "SENTENCE_WHITESPACE" {
 		return false
-	} else if match.Rule.ID == "COMMA_PARENTHESIS_WHITESPACE" {
-		return false
-	} else if match.Rule.ID == "UPPERCASE_SENTENCE_START" {
-		return false
 	} else if match.Rule.ID == "WHITESPACE_RULE" {
 		return false
-	} else if match.Rule.ID == "ENGLISH_WORD_REPEAT_BEGINNING_RULE" {
+	} else if match.Rule.ID == "PUNCTUATION" {
+		return false
+	} else if match.Rule.ID == "COMMA_PARENTHESIS_WHITESPACE" {
 		return false
 	} else if match.Rule.ID == "DASH_RULE" {
 		return false
-	} else if match.Rule.ID == "DOUBLE_PUNCTUATION" {
-		return false
-	} else if match.Rule.ID == "SENTENCE_FRAGMENT" {
-		return false
-	} else if match.Rule.ID == "EN_UNPAIRED_BRACKETS" {
-		return false
-	} else if match.Rule.ID == "ENGLISH_WORD_REPEAT_RULE" {
-		return false
-	} else if match.Rule.ID == "THE_SENT_END" {
+	} else if match.Rule.ID == "UPPERCASE_SENTENCE_START" {
 		return false
 	}
 
