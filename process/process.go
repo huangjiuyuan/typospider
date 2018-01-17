@@ -2,6 +2,7 @@ package process
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/huangjiuyuan/typospider/github"
@@ -24,6 +25,10 @@ type Processer struct {
 	// Rate of the GitHub visitor.
 	Rate time.Duration
 
+	// Wait for goroutines to finish.
+	wg sync.WaitGroup
+	// Keep concurrency under control
+	sema chan struct{}
 	// Thread safe rate limiting queue for processing trees.
 	treequeue ratelimiter.Interface
 	// Thread safe rate limiting queue for processing blobs.
@@ -31,7 +36,7 @@ type Processer struct {
 }
 
 // NewProcesser returns a Processer with an error if necessary.
-func NewProcesser(rate int, vis *github.Visitor, lt *language.LanguageTool, initialize bool) (*Processer, error) {
+func NewProcesser(rate int, vis *github.Visitor, lt *language.LanguageTool, concurrency int, initialize bool) (*Processer, error) {
 	if rate < 1000 {
 		fmt.Printf("[Warning] API rate exceeded threshold\n")
 	}
@@ -55,6 +60,8 @@ func NewProcesser(rate int, vis *github.Visitor, lt *language.LanguageTool, init
 		Tokenizer:    tk,
 		Rate:         time.Duration(rate) * time.Millisecond,
 
+		wg:        sync.WaitGroup{},
+		sema:      make(chan struct{}, concurrency),
 		treequeue: ratelimiter.New(),
 		blobqueue: ratelimiter.New(),
 	}
@@ -159,7 +166,11 @@ func (proc *Processer) processBlob() error {
 				fmt.Printf("[Error] Get blob %s failed: %s\n", b.URL, err)
 			}
 			b.Data = &data
-			// Process the typo produced by the blob.
+
+			// Block until the semaphore has room. If the concurrency is under control, process the
+			// typo produced by the blob.
+			proc.wg.Add(1)
+			proc.sema <- struct{}{}
 			go proc.processTypo(b)
 
 			// Send a signal if the tree queue is done and no tree is produced.
@@ -170,6 +181,8 @@ func (proc *Processer) processBlob() error {
 			fmt.Printf("[Error] Parse blob %#v failed\n", item)
 		}
 	}
+	proc.wg.Wait()
+	close(proc.sema)
 
 	return nil
 }
@@ -225,6 +238,9 @@ func (proc *Processer) processTypo(b *github.Blob) {
 			fmt.Printf("[Error] Index file %s failed: %s\n", file.SHA, err)
 		}
 	}
+
+	proc.wg.Done()
+	<-proc.sema
 }
 
 func filterTypo(match *language.Match) bool {
