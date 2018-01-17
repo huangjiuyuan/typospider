@@ -8,21 +8,25 @@ import (
 )
 
 type File struct {
-	Path   string   `json:"path"`
-	Size   int      `json:"size"`
-	SHA    string   `json:"sha"`
-	URL    string   `json:"url"`
-	Data   string   `json:"data"`
-	Tokens []string `json:"tokens"`
+	Path      string     `json:"path"`
+	Size      int        `json:"size"`
+	SHA       string     `json:"sha"`
+	URL       string     `json:"url"`
+	Data      string     `json:"data"`
+	Fragments []Fragment `json:"fragments"`
+	Valid     bool       `json:"valid"`
+}
+
+type Fragment struct {
+	Offset int      `json:"offset"`
 	Typos  []string `json:"typos"`
-	Valid  bool     `json:"valid"`
 }
 
 type Typo struct {
-	SHA   string         `json:"sha"`
-	File  string         `json:"file"`
-	Match language.Match `json:"match"`
-	Valid bool           `json:"valid"`
+	SHA    string         `json:"sha"`
+	FileID string         `json:"fileId"`
+	Match  language.Match `json:"match"`
+	Valid  bool           `json:"valid"`
 }
 
 func NewFile(path string, size int, sha string, url string, data []byte) (*File, error) {
@@ -36,18 +40,18 @@ func NewFile(path string, size int, sha string, url string, data []byte) (*File,
 	return file, nil
 }
 
-func (file *File) AddTypo(match language.Match) (*Typo, error) {
+func (frag *Fragment) AddTypo(fileId string, match language.Match) (*Typo, error) {
 	text := match.Context.Text
 	hash := sha1.New()
 	hash.Write([]byte(text))
 	sha := hex.EncodeToString(hash.Sum(nil))
-	file.Typos = append(file.Typos, sha)
+	frag.Typos = append(frag.Typos, sha)
 
 	typo := &Typo{
-		SHA:   sha,
-		File:  file.SHA,
-		Match: match,
-		Valid: true,
+		SHA:    sha,
+		FileID: fileId,
+		Match:  match,
+		Valid:  true,
 	}
 
 	return typo, nil

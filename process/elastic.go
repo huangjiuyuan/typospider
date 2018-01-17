@@ -26,12 +26,17 @@ const fileMapping = `
                 },
                 "data":{
                     "type":"text"
-				},
-				"tokens":{
-                    "type":"text"
                 },
-                "typos":{
-                    "type":"text"
+                "fragments":{
+                    "type":"nested",
+                    "properties":{
+                        "offset":{
+                            "type":"integer"
+                        },
+                        "typos":{
+                            "type":"text"
+                        }
+                    }
                 },
                 "valid":{
                     "type":"boolean"
@@ -47,6 +52,9 @@ const typoMapping = `
         "typo":{
             "properties":{
                 "sha":{
+                    "type":"keyword"
+                },
+                "fileId":{
                     "type":"keyword"
                 },
                 "match":{

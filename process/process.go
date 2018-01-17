@@ -196,25 +196,26 @@ func (proc *Processer) processTypo(b *github.Blob) {
 	}
 
 	// Tokenize the file context.
-	err = proc.Tokenizer.Tokenize(file)
+	tokens, err := proc.Tokenizer.Tokenize(file)
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	// Check error for each token.
-	for _, token := range file.Tokens {
+	for offset, token := range tokens {
 		cr, err := proc.LanguageTool.Check(token, "en", "", "", "", "", "", "", false)
 		if err != nil {
 			fmt.Println(err)
 		}
 
 		if len(cr.Matches) > 0 {
+			frag := Fragment{offset, []string{}}
 			for _, match := range cr.Matches {
 				// Filter out any invalid typo.
 				valid := filterTypo(match)
 				if valid {
-					// Add a typo to the file if it is valid.
-					typo, err := file.AddTypo(*match)
+					// Add a typo to the file fragment if it is valid.
+					typo, err := frag.AddTypo(file.SHA, *match)
 					if err != nil {
 						fmt.Printf("[Error] Add typo %s failed: %s\n", match.Context.Text, err)
 						continue
@@ -228,11 +229,14 @@ func (proc *Processer) processTypo(b *github.Blob) {
 					}
 				}
 			}
+			if len(frag.Typos) > 0 {
+				file.Fragments = append(file.Fragments, frag)
+			}
 		}
 	}
 
-	// If the file contains any typo, index the file to Elasticsearch.
-	if len(file.Typos) > 0 {
+	// If the file contains any fragment, index the file to Elasticsearch.
+	if len(file.Fragments) > 0 {
 		_, err = proc.Elastic.IndexFile("kubernetes", *file)
 		if err != nil {
 			fmt.Printf("[Error] Index file %s failed: %s\n", file.SHA, err)

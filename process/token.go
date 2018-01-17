@@ -9,7 +9,8 @@ func NewTokenizer() (*Tokenizer, error) {
 }
 
 // Tokenize the file context.
-func (tk *Tokenizer) Tokenize(file *File) error {
-	file.Tokens = append(file.Tokens, file.Data)
-	return nil
+func (tk *Tokenizer) Tokenize(file *File) (map[int]string, error) {
+	tokens := make(map[int]string)
+	tokens[0] = file.Data
+	return tokens, nil
 }
