@@ -3,27 +3,34 @@ package main
 import (
 	"fmt"
 
-	"github.com/huangjiuyuan/typospider/github"
-	"github.com/huangjiuyuan/typospider/language"
 	"github.com/huangjiuyuan/typospider/process"
 )
 
 func main() {
-	vis, err := github.NewVisitor(false, "86eef85b90c809508bfa53a5383e17eddc6bcbbe")
+	// vis, err := github.NewVisitor(false, "86eef85b90c809508bfa53a5383e17eddc6bcbbe")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	// lt, err := language.NewLanguageTool("localhost", "6066")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	// proc, err := process.NewProcesser(1000, vis, lt, 10, true)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	// go proc.ProcessTree("https://api.github.com/repos/kubernetes/kubernetes/git/trees/cec41ac042ea6ac18cf70b7d6f38500b9723e6cb")
+	// proc.ProcessBlob()
+
+	context := "/*\nCopyright 2016 The Kubernetes Authors.\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0\n\nUnless required by applicable law or agreed to in writing, software\ndistributed under the License is distributed on an \"AS IS\" BASIS,\nWITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\nSee the License for the specific language governing permissions and\nlimitations under the License.\n*/\n\npackage kubeapiserver\n\nimport (\n\t\"fmt\"\n\t\"strconv\"\n\t\"strings\"\n\n\t\"k8s.io/apimachinery/pkg/runtime\"\n\t\"k8s.io/apimachinery/pkg/runtime/schema\"\n\tserverstorage \"k8s.io/apiserver/pkg/server/storage\"\n\t\"k8s.io/apiserver/pkg/storage/storagebackend\"\n\tutilflag \"k8s.io/apiserver/pkg/util/flag\"\n\t\"k8s.io/kubernetes/pkg/api/legacyscheme\"\n)\n\n// SpecialDefaultResourcePrefixes are prefixes compiled into Kubernetes.\nvar SpecialDefaultResourcePrefixes = map[schema.GroupResource]string{\n\t{Group: \"\", Resource: \"replicationControllers\"}:        \"controllers\",\n\t{Group: \"\", Resource: \"replicationcontrollers\"}:        \"controllers\",\n\t{Group: \"\", Resource: \"endpoints\"}:                     \"services/endpoints\",\n\t{Group: \"\", Resource: \"nodes\"}:                         \"minions\",\n\t{Group: \"\", Resource: \"services\"}:                      \"services/specs\",\n\t{Group: \"extensions\", Resource: \"ingresses\"}:           \"ingress\",\n\t{Group: \"extensions\", Resource: \"podsecuritypolicies\"}: \"podsecuritypolicy\",\n}\n\n// NewStorageFactory builds the DefaultStorageFactory.\n// Merges defaultResourceConfig with the user specified overrides and merges\n// defaultAPIResourceConfig with the corresponding user specified overrides as well.\nfunc NewStorageFactory(storageConfig storagebackend.Config, defaultMediaType string, serializer runtime.StorageSerializer,\n\tdefaultResourceEncoding *serverstorage.DefaultResourceEncodingConfig, storageEncodingOverrides map[string]schema.GroupVersion, resourceEncodingOverrides []schema.GroupVersionResource,\n\tdefaultAPIResourceConfig *serverstorage.ResourceConfig, resourceConfigOverrides utilflag.ConfigurationMap) (*serverstorage.DefaultStorageFactory, error) {\n\n\tresourceEncodingConfig := mergeGroupEncodingConfigs(defaultResourceEncoding, storageEncodingOverrides)\n\tresourceEncodingConfig = mergeResourceEncodingConfigs(resourceEncodingConfig, resourceEncodingOverrides)\n\tapiResourceConfig, err := mergeAPIResourceConfigs(defaultAPIResourceConfig, resourceConfigOverrides)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\treturn serverstorage.NewDefaultStorageFactory(storageConfig, defaultMediaType, serializer, resourceEncodingConfig, apiResourceConfig, SpecialDefaultResourcePrefixes), nil\n}\n\n// Merges the given defaultResourceConfig with specific GroupVersionResource overrides.\nfunc mergeResourceEncodingConfigs(defaultResourceEncoding *serverstorage.DefaultResourceEncodingConfig, resourceEncodingOverrides []schema.GroupVersionResource) *serverstorage.DefaultResourceEncodingConfig {\n\tresourceEncodingConfig := defaultResourceEncoding\n\tfor _, gvr := range resourceEncodingOverrides {\n\t\tresourceEncodingConfig.SetResourceEncoding(gvr.GroupResource(), gvr.GroupVersion(),\n\t\t\tschema.GroupVersion{Group: gvr.Group, Version: runtime.APIVersionInternal})\n\t}\n\treturn resourceEncodingConfig\n}\n\n// Merges the given defaultResourceConfig with specific GroupVersion overrides.\nfunc mergeGroupEncodingConfigs(defaultResourceEncoding *serverstorage.DefaultResourceEncodingConfig, storageEncodingOverrides map[string]schema.GroupVersion) *serverstorage.DefaultResourceEncodingConfig {\n\tresourceEncodingConfig := defaultResourceEncoding\n\tfor group, storageEncodingVersion := range storageEncodingOverrides {\n\t\tresourceEncodingConfig.SetVersionEncoding(group, storageEncodingVersion, schema.GroupVersion{Group: group, Version: runtime.APIVersionInternal})\n\t}\n\treturn resourceEncodingConfig\n}\n\n// Merges the given defaultAPIResourceConfig with the given resourceConfigOverrides.\nfunc mergeAPIResourceConfigs(defaultAPIResourceConfig *serverstorage.ResourceConfig, resourceConfigOverrides utilflag.ConfigurationMap) (*serverstorage.ResourceConfig, error) {\n\tresourceConfig := defaultAPIResourceConfig\n\toverrides := resourceConfigOverrides\n\n\t// \"api/all=false\" allows users to selectively enable specific api versions.\n\tallAPIFlagValue, ok := overrides[\"api/all\"]\n\tif ok {\n\t\tif allAPIFlagValue == \"false\" {\n\t\t\t// Disable all group versions.\n\t\t\tresourceConfig.DisableVersions(legacyscheme.Registry.RegisteredGroupVersions()...)\n\t\t} else if allAPIFlagValue == \"true\" {\n\t\t\tresourceConfig.EnableVersions(legacyscheme.Registry.RegisteredGroupVersions()...)\n\t\t}\n\t}\n\n\t// \"api/legacy=false\" allows users to disable legacy api versions.\n\tdisableLegacyAPIs := false\n\tlegacyAPIFlagValue, ok := overrides[\"api/legacy\"]\n\tif ok && legacyAPIFlagValue == \"false\" {\n\t\tdisableLegacyAPIs = true\n\t}\n\t_ = disableLegacyAPIs // hush the compiler while we don't have legacy APIs to disable.\n\n\t// \"<resourceSpecifier>={true|false} allows users to enable/disable API.\n\t// This takes preference over api/all and api/legacy, if specified.\n\t// Iterate through all group/version overrides specified in runtimeConfig.\n\tfor key := range overrides {\n\t\tif key == \"api/all\" || key == \"api/legacy\" {\n\t\t\t// Have already handled them above. Can skip them here.\n\t\t\tcontinue\n\t\t}\n\t\ttokens := strings.Split(key, \"/\")\n\t\tif len(tokens) != 2 {\n\t\t\tcontinue\n\t\t}\n\t\tgroupVersionString := tokens[0] + \"/\" + tokens[1]\n\t\t// HACK: Hack for \"v1\" legacy group version.\n\t\t// Remove when we stop supporting the legacy group version.\n\t\tif groupVersionString == \"api/v1\" {\n\t\t\tgroupVersionString = \"v1\"\n\t\t}\n\t\tgroupVersion, err := schema.ParseGroupVersion(groupVersionString)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"invalid key %s\", key)\n\t\t}\n\t\t// Verify that the groupVersion is legacyscheme.Registry.\n\t\tif !legacyscheme.Registry.IsRegisteredVersion(groupVersion) {\n\t\t\treturn nil, fmt.Errorf(\"group version %s that has not been registered\", groupVersion.String())\n\t\t}\n\t\tenabled, err := getRuntimeConfigValue(overrides, key, false)\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\tif enabled {\n\t\t\tresourceConfig.EnableVersions(groupVersion)\n\t\t} else {\n\t\t\tresourceConfig.DisableVersions(groupVersion)\n\t\t}\n\t}\n\n\t// Iterate through all group/version/resource overrides specified in runtimeConfig.\n\tfor key := range overrides {\n\t\ttokens := strings.Split(key, \"/\")\n\t\tif len(tokens) != 3 {\n\t\t\tcontinue\n\t\t}\n\t\tgroupVersionString := tokens[0] + \"/\" + tokens[1]\n\t\t// HACK: Hack for \"v1\" legacy group version.\n\t\t// Remove when we stop supporting the legacy group version.\n\t\tif groupVersionString == \"api/v1\" {\n\t\t\tgroupVersionString = \"v1\"\n\t\t}\n\t\tgroupVersion, err := schema.ParseGroupVersion(groupVersionString)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"invalid key %s\", key)\n\t\t}\n\t\tresource := tokens[2]\n\t\t// Verify that the groupVersion is legacyscheme.Registry.\n\t\tif !legacyscheme.Registry.IsRegisteredVersion(groupVersion) {\n\t\t\treturn nil, fmt.Errorf(\"group version %s that has not been registered\", groupVersion.String())\n\t\t}\n\n\t\tif !resourceConfig.AnyResourcesForVersionEnabled(groupVersion) {\n\t\t\treturn nil, fmt.Errorf(\"%v is disabled, you cannot configure its resources individually\", groupVersion)\n\t\t}\n\n\t\tenabled, err := getRuntimeConfigValue(overrides, key, false)\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\tif enabled {\n\t\t\tresourceConfig.EnableResources(groupVersion.WithResource(resource))\n\t\t} else {\n\t\t\tresourceConfig.DisableResources(groupVersion.WithResource(resource))\n\t\t}\n\t}\n\treturn resourceConfig, nil\n}\n\nfunc getRuntimeConfigValue(overrides utilflag.ConfigurationMap, apiKey string, defaultValue bool) (bool, error) {\n\tflagValue, ok := overrides[apiKey]\n\tif ok {\n\t\tif flagValue == \"\" {\n\t\t\treturn true, nil\n\t\t}\n\t\tboolValue, err := strconv.ParseBool(flagValue)\n\t\tif err != nil {\n\t\t\treturn false, fmt.Errorf(\"invalid value of %s: %s, err: %v\", apiKey, flagValue, err)\n\t\t}\n\t\treturn boolValue, nil\n\t}\n\treturn defaultValue, nil\n}\n"
+
+	tokenizer := process.Tokenizer{}
+	tokens, err := tokenizer.Tokenize(context)
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	lt, err := language.NewLanguageTool("localhost", "6066")
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	proc, err := process.NewProcesser(1000, vis, lt, 10, true)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	go proc.ProcessTree("https://api.github.com/repos/kubernetes/kubernetes/git/trees/cec41ac042ea6ac18cf70b7d6f38500b9723e6cb")
-	proc.ProcessBlob()
+	fmt.Println(tokens)
 }

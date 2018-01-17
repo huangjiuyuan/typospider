@@ -196,7 +196,7 @@ func (proc *Processer) processTypo(b *github.Blob) {
 	}
 
 	// Tokenize the file context.
-	tokens, err := proc.Tokenizer.Tokenize(file)
+	tokens, err := proc.Tokenizer.Tokenize(file.Data)
 	if err != nil {
 		fmt.Println(err)
 	}
