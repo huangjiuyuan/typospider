@@ -32,21 +32,29 @@ type Submodule struct {
 }
 
 // GetTree gets a GitHub tree.
-func (vis *Visitor) GetTree(url string) (*Tree, error) {
-	if vis.Recursive != true {
+func (vis *Visitor) GetTree(url string) (*Tree, bool, error) {
+	if !vis.Recursive {
 		t, err := vis.getTreeUnrecursive(url)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		return t, nil
+		return t, false, nil
 	}
 
 	t, err := vis.getTreeRecursive(url)
 	if err != nil {
-		return nil, err
+		return nil, true, err
+	}
+	if t.Truncated {
+		vis.Recursive = false
+		t, err := vis.getTreeUnrecursive(url)
+		if err != nil {
+			return nil, false, err
+		}
+		return t, false, nil
 	}
 
-	return t, nil
+	return t, true, nil
 }
 
 // getTreeUnrecursive gets contents with depth of 1 under a tree.
@@ -109,7 +117,7 @@ func (vis *Visitor) getTreeRecursive(url string) (*Tree, error) {
 	}
 
 	// If the response is truncated, print a warning message.
-	if t.Truncated != false {
+	if t.Truncated {
 		fmt.Printf("[Warning] Result has been truncated\n")
 	}
 	return t, nil

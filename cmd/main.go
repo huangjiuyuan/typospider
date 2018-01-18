@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	vis, err := github.NewVisitor(false, "86eef85b90c809508bfa53a5383e17eddc6bcbbe")
+	vis, err := github.NewVisitor(true, "84521b7efd1c71787383c33ae83ca51387cb27a5")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -19,7 +19,7 @@ func main() {
 		fmt.Println(err)
 	}
 
-	proc, err := process.NewProcesser(1000, vis, lt, 20, true)
+	proc, err := process.NewProcesser(1000, vis, lt, 10, true)
 	if err != nil {
 		fmt.Println(err)
 	}

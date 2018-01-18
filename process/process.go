@@ -3,6 +3,7 @@ package process
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -88,12 +89,38 @@ func (proc *Processer) ProcessBlob() {
 
 func (proc *Processer) processTree(url string) error {
 	// Produce a tree then enqueue to the tree queue.
-	t, err := proc.Visitor.GetTree(url)
+	t, recursive, err := proc.Visitor.GetTree(url)
 	if err != nil {
 		return err
 	}
-	proc.treequeue.Enqueue(t)
 
+	if recursive {
+		for _, sm := range t.Tree {
+			// Skip "vendor" and "staging" folders.
+			dir := strings.Split(sm.Path, "/")
+			if dir[0] == "vendor" || dir[0] == "staging" {
+				continue
+			}
+
+			// Produce a blob then enqueue to the blob queue if the submodule is a valid blob.
+			if sm.Type == "blob" {
+				if filepath.Ext(sm.Path) == ".go" {
+					blob := &github.Blob{
+						Path: sm.Path,
+						Size: *sm.Size,
+						SHA:  sm.SHA,
+						URL:  sm.URL,
+						Data: nil,
+					}
+					proc.blobqueue.Enqueue(blob)
+				}
+			}
+		}
+		proc.treequeue.ShutDown()
+		return nil
+	}
+
+	proc.treequeue.Enqueue(t)
 	for {
 		// Shut down if received a signal from dequeue operation.
 		item, shutdown := proc.treequeue.Dequeue()
@@ -122,7 +149,10 @@ func (proc *Processer) processTree(url string) error {
 					}
 				} else if sm.Type == "tree" {
 					// Produce a tree then enqueue to the tree queue if the submodule is a tree.
-					tree, err := proc.Visitor.GetTree(sm.URL)
+					tree, recursive, err := proc.Visitor.GetTree(sm.URL)
+					if recursive {
+						return fmt.Errorf("visiting tree recursively in non-recursive mode")
+					}
 					tree.Path = setPath(t.Path, sm.Path)
 					if err != nil {
 						fmt.Printf("[Error] Get tree %s failed: %s\n", t.URL, err)
@@ -130,7 +160,6 @@ func (proc *Processer) processTree(url string) error {
 					proc.treequeue.Enqueue(tree)
 				}
 			}
-
 			// Send a signal if the tree queue is done and no tree is produced.
 			if proc.treequeue.Len() == 0 {
 				proc.treequeue.ShutDown()
@@ -264,6 +293,26 @@ func filterTypo(match *language.Match) bool {
 	} else if match.Rule.ID == "DASH_RULE" {
 		return false
 	} else if match.Rule.ID == "UPPERCASE_SENTENCE_START" {
+		return false
+	} else if match.Rule.ID == "ALL_MOST_SOME_OF_NOUN" {
+		return false
+	} else if match.Rule.ID == "COMMA_COMPOUND_SENTENCE" {
+		return false
+	} else if match.Rule.ID == "ALL_OF_THE" {
+		return false
+	} else if match.Rule.ID == "CAN_BACKUP" {
+		return false
+	} else if match.Rule.ID == "ENGLISH_WORD_REPEAT_BEGINNING_RULE" {
+		return false
+	} else if match.Rule.ID == "A_INFINITVE" {
+		return false
+	} else if match.Rule.ID == "EN_COMPOUNDS" {
+		return false
+	} else if match.Rule.ID == "IN_A_X_MANNER" {
+		return false
+	} else if match.Rule.ID == "BY_DEFAULT_COMMA" {
+		return false
+	} else if match.Rule.ID == "TRY_AND" {
 		return false
 	}
 
