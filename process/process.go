@@ -231,6 +231,7 @@ func (proc *Processer) processTypo(b *github.Blob) {
 	tokens, err := proc.Tokenizer.Tokenize(file.Data)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 
 	// Check error for each token.
@@ -238,6 +239,7 @@ func (proc *Processer) processTypo(b *github.Blob) {
 		cr, err := proc.LanguageTool.Check(token, "en", "", "", "", "", "", "", false)
 		if err != nil {
 			fmt.Println(err)
+			return
 		}
 
 		if len(cr.Matches) > 0 {
@@ -313,6 +315,16 @@ func filterTypo(match *language.Match) bool {
 	} else if match.Rule.ID == "BY_DEFAULT_COMMA" {
 		return false
 	} else if match.Rule.ID == "TRY_AND" {
+		return false
+	} else if match.Rule.ID == "DOUBLE_PUNCTUATION" {
+		return false
+	} else if match.Rule.ID == "RETURN_BACK" {
+		return false
+	} else if match.Rule.ID == "SENTENCE_FRAGMENT" {
+		return false
+	} else if match.Rule.ID == "EN_UNPAIRED_BRACKETS" {
+		return false
+	} else if match.Rule.ID == "BOTH_AS_WELL_AS" {
 		return false
 	}
 
