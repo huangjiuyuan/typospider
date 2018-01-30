@@ -326,6 +326,20 @@ func filterTypo(match *language.Match) bool {
 		return false
 	} else if match.Rule.ID == "BOTH_AS_WELL_AS" {
 		return false
+	} else if match.Rule.ID == "CAN_SETUP" {
+		return false
+	} else if match.Rule.ID == "SENT_START_CONJUNCTIVE_LINKING_ADVERB_COMMA" {
+		return false
+	} else if match.Rule.ID == "PERIOD_OF_TIME" {
+		return false
+	} else if match.Rule.ID == "WHETHER" {
+		return false
+	} else if match.Rule.ID == "DEPEND_ON" {
+		return false
+	} else if match.Rule.ID == "DT_JJ_NO_NOUN" {
+		return false
+	} else if match.Rule.ID == "USE_TO_VERB" {
+		return false
 	}
 
 	return true

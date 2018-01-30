@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	vis, err := github.NewVisitor(true, "84521b7efd1c71787383c33ae83ca51387cb27a5")
+	vis, err := github.NewVisitor(true, "68999f8a97ee7b912fa2b55da098d9a9021c5e04")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -24,6 +24,6 @@ func main() {
 		fmt.Println(err)
 	}
 
-	go proc.ProcessTree("https://api.github.com/repos/kubernetes/kubernetes/git/trees/d721cbc2fe2c098663350c34265a18a7715a7407")
+	go proc.ProcessTree("https://api.github.com/repos/kubernetes/kubernetes/git/trees/a740c006931a59cc99cfbb103208758bbc42baf0")
 	proc.ProcessBlob()
 }

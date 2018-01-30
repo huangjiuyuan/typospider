@@ -24,9 +24,6 @@ const fileMapping = `
                 "url":{
                     "type":"text"
                 },
-                "data":{
-                    "type":"text"
-                },
                 "fragments":{
                     "type":"nested",
                     "properties":{
@@ -37,6 +34,9 @@ const fileMapping = `
                             "type":"text"
                         }
                     }
+				},
+				"data":{
+                    "type":"text"
                 },
                 "valid":{
                     "type":"boolean"

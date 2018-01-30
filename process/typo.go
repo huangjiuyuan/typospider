@@ -12,8 +12,8 @@ type File struct {
 	Size      int        `json:"size"`
 	SHA       string     `json:"sha"`
 	URL       string     `json:"url"`
-	Data      string     `json:"data"`
 	Fragments []Fragment `json:"fragments"`
+	Data      string     `json:"data"`
 	Valid     bool       `json:"valid"`
 }
 
